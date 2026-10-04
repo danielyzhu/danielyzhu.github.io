@@ -791,6 +791,31 @@ body {
      scroll-margin-top: 80px; /* Account for navbar height when linking to subsections */
 }
 
+/* Research article opening paragraph - drop cap that sits on the text's line grid */
+.news-drop-cap::first-letter {
+     -webkit-initial-letter: 3;
+     initial-letter: 3; /* Top meets the first line's caps, baseline sits on the third line */
+     font-weight: 500;
+     margin-right: 0.375rem;
+}
+
+/* Small-caps lead-in to carry the eye from the drop cap into the sentence */
+.news-drop-cap::first-line {
+     font-variant-caps: small-caps;
+     font-weight: 500; /* Scaled-down capitals render lighter than the body text */
+     letter-spacing: 0.04em;
+}
+
+/* Float fallback for browsers without initial-letter (Firefox) */
+@supports not ((initial-letter: 3) or (-webkit-initial-letter: 3)) {
+     .news-drop-cap::first-letter {
+          float: left;
+          font-size: 5.29em; /* Three lines at line-height 1.5, measured cap top to baseline */
+          line-height: 0.85; /* Keeps the float to three lines so the fourth runs full width */
+          margin-top: -0.01em;
+     }
+}
+
 /* Container for responsive layout */
 .container {
      width: 100%;

@@ -32,6 +32,9 @@ export default function Home() {
                          <NewsArticleLayout
                               title="Spateo: Spatiotemporal modeling of molecular holograms"
                               imagePath="/Spateo.png"
+                              imageAlt="Rotating 3D Spateo reconstruction of an E11.5 mouse embryo, cells colored by tissue type"
+                              videoPath="/e115_embryo_web.mp4"
+                              videoBackground="#191916"
                               pdfPath="/pdf/Spateo.pdf"
                               githubUrl="https://github.com/aristoteleo/spateo-release"
                               url="https://doi.org/10.1016/j.cell.2024.10.011"

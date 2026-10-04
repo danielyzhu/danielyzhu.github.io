@@ -8,6 +8,8 @@ interface NewsArticleLayoutProps {
      journal?: string;
      imagePath?: string;
      imageAlt?: string;
+     videoPath?: string; // Muted looping video shown in place of the image
+     videoBackground?: string; // Fills the space around the video; match the video's own background
      pdfPath?: string;
      githubUrl?: string;
      url?: string; // URL for social sharing
@@ -31,6 +33,8 @@ const NewsArticleLayout: React.FC<NewsArticleLayoutProps> = ({
      journal,
      imagePath = "/Spateo.png",
      imageAlt = "Article image",
+     videoPath,
+     videoBackground,
      pdfPath,
      githubUrl,
      url, // URL for social sharing
@@ -73,6 +77,31 @@ const NewsArticleLayout: React.FC<NewsArticleLayoutProps> = ({
           
           return () => window.removeEventListener("resize", checkMobile);
      }, []);
+
+     // Restart the video from the beginning each time it scrolls into view, and pause it once it leaves
+     const videoRef = useRef<HTMLVideoElement>(null);
+     useEffect(() => {
+          const video = videoRef.current;
+          if (!video) return;
+
+          const observer = new IntersectionObserver(
+               ([entry]) => {
+                    if (entry.isIntersecting) {
+                         video.currentTime = 0;
+                         // Autoplay can still be refused (e.g. iOS Low Power Mode) - let the visitor start it instead
+                         video.play().catch(() => {
+                              video.controls = true;
+                         });
+                    } else {
+                         video.pause();
+                    }
+               },
+               { threshold: 0.5 }
+          );
+
+          observer.observe(video);
+          return () => observer.disconnect();
+     }, [videoPath]);
 
      // Get current URL on client side
      useEffect(() => {
@@ -139,13 +168,14 @@ const NewsArticleLayout: React.FC<NewsArticleLayoutProps> = ({
           let bestSplit = Math.floor(totalWords / 2);
           let bestHeightDifference = Infinity;
 
-          // Create temporary measurement element
+          // Create temporary measurement element, matching the rendered paragraphs
+          const paragraphStyle = getComputedStyle(leftColumnRef.current.querySelector("p") ?? leftColumnRef.current);
           const tempElement = document.createElement("div");
           tempElement.style.position = "absolute";
           tempElement.style.visibility = "hidden";
           tempElement.style.fontSize = `${mainContentFontSize}px`;
-          tempElement.style.fontFamily = getComputedStyle(leftColumnRef.current).fontFamily;
-          tempElement.style.lineHeight = getComputedStyle(leftColumnRef.current).lineHeight;
+          tempElement.style.fontFamily = paragraphStyle.fontFamily;
+          tempElement.style.lineHeight = paragraphStyle.lineHeight;
           tempElement.style.padding = "0.5rem";
           document.body.appendChild(tempElement);
 
@@ -154,14 +184,16 @@ const NewsArticleLayout: React.FC<NewsArticleLayoutProps> = ({
                const leftText = words.slice(0, mid).join(" ");
                const rightText = words.slice(mid).join(" ");
 
-               // Measure left column height
+               // Measure left column height (with the drop cap styling)
                tempElement.style.width = `${leftColumnWidth}px`;
-               tempElement.innerHTML = `<span style="float:left; font-size:4.5rem; line-height:1; margin-right:0.5rem; margin-top:0.25rem;">${leftText.charAt(0)}</span>${leftText.substring(1)}`;
+               tempElement.className = "news-drop-cap";
+               tempElement.textContent = leftText;
                const leftTextHeight = tempElement.scrollHeight;
 
                // Measure right column height
                tempElement.style.width = `${rightColumnWidth}px`;
-               tempElement.innerHTML = rightText;
+               tempElement.className = "";
+               tempElement.textContent = rightText;
                const rightTextHeight = tempElement.scrollHeight;
 
                const heightDifference = Math.abs(leftTextHeight - rightTextHeight);
@@ -209,10 +241,6 @@ const NewsArticleLayout: React.FC<NewsArticleLayoutProps> = ({
                window.removeEventListener("resize", handleResize);
           };
      }, [calculateOptimalSplit]);
-
-     // Get the first letter of the main content for the drop cap
-     const firstLetter = mainContent.charAt(0);
-     const restOfContent = mainContent.substring(1);
 
      // Use custom URL if provided, otherwise fall back to current URL
      const shareUrl = url || currentUrl;
@@ -331,14 +359,30 @@ const NewsArticleLayout: React.FC<NewsArticleLayoutProps> = ({
                <div className="flex flex-col md:flex-row mb-6 gap-4 md:gap-0">
                     {/* Image container */}
                     <div className="w-full md:w-1/3 mb-4 md:mb-0">
-                         <div className="bg-blue-800 h-64 sm:h-80 md:h-96 flex items-center justify-center text-white overflow-hidden">
-                              <Image
-                                   src={imagePath}
-                                   alt={imageAlt}
-                                   width={400}
-                                   height={400}
-                                   style={{ objectFit: "cover", width: "100%", height: "100%" }}
-                              />
+                         <div
+                              className="bg-blue-800 h-64 sm:h-80 md:h-96 flex items-center justify-center text-white overflow-hidden"
+                              style={videoPath && videoBackground ? { backgroundColor: videoBackground } : undefined}
+                         >
+                              {videoPath ? (
+                                   <video
+                                        ref={videoRef}
+                                        src={videoPath}
+                                        aria-label={imageAlt}
+                                        muted
+                                        loop
+                                        playsInline
+                                        preload="metadata"
+                                        style={{ objectFit: "contain", width: "100%", height: "100%" }}
+                                   />
+                              ) : (
+                                   <Image
+                                        src={imagePath}
+                                        alt={imageAlt}
+                                        width={400}
+                                        height={400}
+                                        style={{ objectFit: "cover", width: "100%", height: "100%" }}
+                                   />
+                              )}
                          </div>
                     </div>
 
@@ -347,15 +391,11 @@ const NewsArticleLayout: React.FC<NewsArticleLayoutProps> = ({
                          <div className={`${isMobile ? 'block' : 'grid grid-cols-2 gap-8'} h-full`}>
                               {/* Left column with drop cap */}
                               <div ref={leftColumnRef} className="p-2">
-                                   <p className="text-justify">
-                                        {firstLetter && !isMobile && (
-                                             <span className="float-left text-5xl sm:text-6xl md:text-7xl font-serif mr-2 mt-1 leading-none">
-                                                  {firstLetter}
-                                             </span>
-                                        )}
-                                        <span style={{ fontSize: `${responsiveMainFontSize}px` }}>
-                                             {isMobile ? mainContent : restOfContent}
-                                        </span>
+                                   <p
+                                        className={`text-justify ${isMobile ? "" : "news-drop-cap"}`}
+                                        style={{ fontSize: `${responsiveMainFontSize}px` }}
+                                   >
+                                        {mainContent}
                                    </p>
                               </div>
 
